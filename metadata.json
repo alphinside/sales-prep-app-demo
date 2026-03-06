@@ -1,0 +1,7 @@
+{
+  "name": "LeadFlow CRM (Final)",
+  "description": "A lightweight sales lead tracking application with AI-powered insights.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
