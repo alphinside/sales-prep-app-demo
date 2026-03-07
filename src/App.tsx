@@ -4,18 +4,18 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Plus, 
-  Search, 
-  MoreVertical, 
-  Mail, 
-  Phone, 
-  Building2, 
-  DollarSign, 
-  TrendingUp, 
-  Users, 
-  CheckCircle2, 
-  Clock, 
+import {
+  Plus,
+  Search,
+  MoreVertical,
+  Mail,
+  Phone,
+  Building2,
+  DollarSign,
+  TrendingUp,
+  Users,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   Trash2,
   Edit2,
@@ -43,16 +43,17 @@ import { GoogleGenAI } from "@google/genai";
 import Markdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { EmailComposer } from './components/EmailComposer';
 
 // --- Utility ---
-function cn(...inputs: ClassValue[]) {
+export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 // --- Types ---
 type LeadStatus = 'New' | 'Contacted' | 'Qualified' | 'Proposal' | 'Closed Won' | 'Closed Lost';
 
-interface Lead {
+export interface Lead {
   id: number;
   name: string;
   company: string;
@@ -107,7 +108,7 @@ export default function App() {
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
-  const [view, setView] = useState<'dashboard' | 'leads' | 'meetings' | 'chat'>('leads');
+  const [view, setView] = useState<'dashboard' | 'leads' | 'meetings' | 'chat' | 'email'>('leads');
   const [aiAnalysis, setAiAnalysis] = useState<{ id: number; text: string; type: 'analysis' | 'research' } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isResearching, setIsResearching] = useState(false);
@@ -330,7 +331,7 @@ export default function App() {
       const transcription = response.text || "Transcription failed.";
       const meeting = meetings.find(m => m.id === meetingId);
       if (meeting) {
-        const updatedNotes = meeting.notes 
+        const updatedNotes = meeting.notes
           ? `${meeting.notes}\n\n--- AI Transcription ---\n${transcription}`
           : transcription;
 
@@ -342,10 +343,10 @@ export default function App() {
             notes: updatedNotes
           }),
         });
-        
+
         // Also add to centralized log
         await addLeadNote(meeting.lead_id, `AI Transcription for "${meeting.title}":\n\n${transcription}`, 'meeting');
-        
+
         fetchMeetings();
       }
     } catch (error) {
@@ -369,9 +370,9 @@ export default function App() {
       // 1. Fetch lead history
       const res = await fetch(`/api/leads/${meeting.lead_id}/notes`);
       const notes: LeadNote[] = await res.json();
-      
+
       const historyText = notes.map(n => `[${new Date(n.created_at).toLocaleDateString()}] (${n.type}): ${n.content}`).join('\n\n');
-      
+
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
       // Step 1: Generate the script using a text model
@@ -432,7 +433,7 @@ export default function App() {
         }
 
         let audioBlob: Blob;
-        
+
         // If it's raw PCM (common for this model), we need to add a WAV header
         if (mimeType === 'audio/pcm' || !mimeType || mimeType.includes('pcm')) {
           const sampleRate = 24000;
@@ -487,7 +488,7 @@ export default function App() {
 
   const generatePrepInfographic = async (meeting: Meeting) => {
     setIsGeneratingInfographic(meeting.id);
-    
+
     const maxRetries = 2;
     let attempt = 0;
 
@@ -588,7 +589,7 @@ export default function App() {
       });
       const text = response.text || "No analysis available.";
       setAiAnalysis({ id: lead.id, text, type: 'analysis' });
-      
+
       // Add to centralized log
       await addLeadNote(lead.id, text, 'analysis');
     } catch (error) {
@@ -604,12 +605,12 @@ export default function App() {
     setAiAnalysis(null);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      
+
       const missingInfo = [];
       if (!lead.email) missingInfo.push('email address');
       if (!lead.phone) missingInfo.push('phone number');
       if (!lead.company) missingInfo.push('company details');
-      
+
       const prompt = `Perform a professional research task for this sales lead.
       Name: ${lead.name}
       Company: ${lead.company || 'Unknown'}
@@ -633,7 +634,7 @@ export default function App() {
       });
 
       let reportText = response.text || "No research data found.";
-      
+
       // Extract grounding sources if available
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks && chunks.length > 0) {
@@ -646,7 +647,7 @@ export default function App() {
       }
 
       setAiAnalysis({ id: lead.id, text: reportText, type: 'research' });
-      
+
       // Add to centralized log
       await addLeadNote(lead.id, reportText, 'research');
     } catch (error) {
@@ -658,7 +659,7 @@ export default function App() {
   };
 
   const filteredLeads = useMemo(() => {
-    return leads.filter(lead => 
+    return leads.filter(lead =>
       lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -684,7 +685,7 @@ export default function App() {
         </div>
 
         <nav className="space-y-1">
-          <button 
+          <button
             onClick={() => setView('leads')}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
@@ -694,7 +695,7 @@ export default function App() {
             <Users size={18} />
             Leads
           </button>
-          <button 
+          <button
             onClick={() => setView('dashboard')}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
@@ -704,7 +705,7 @@ export default function App() {
             <LayoutDashboard size={18} />
             Dashboard
           </button>
-          <button 
+          <button
             onClick={() => setView('meetings')}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
@@ -714,7 +715,7 @@ export default function App() {
             <Calendar size={18} />
             Meetings
           </button>
-          <button 
+          <button
             onClick={() => setView('chat')}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
@@ -723,6 +724,16 @@ export default function App() {
           >
             <MessageSquare size={18} />
             Chat
+          </button>
+          <button
+            onClick={() => setView('email')}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors",
+              view === 'email' ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"
+            )}
+          >
+            <Mail size={18} />
+            Email Composer
           </button>
         </nav>
 
@@ -739,22 +750,23 @@ export default function App() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h2 className="text-2xl font-bold">
-              {view === 'leads' ? 'Sales Leads' : view === 'dashboard' ? 'Pipeline Overview' : view === 'meetings' ? 'Meetings & Events' : 'AI Sales Assistant'}
+              {view === 'leads' ? 'Sales Leads' : view === 'dashboard' ? 'Pipeline Overview' : view === 'meetings' ? 'Meetings & Events' : view === 'email' ? 'Email Composer' : 'AI Sales Assistant'}
             </h2>
             <p className="text-gray-500 text-sm">
-              {view === 'leads' ? 'Manage and track your potential customers' : 
-               view === 'dashboard' ? 'Overview of your sales health' : 
-               view === 'meetings' ? 'Schedule and record client interactions' :
-               'Ask questions about your leads, meetings, and sales strategy'}
+              {view === 'leads' ? 'Manage and track your potential customers' :
+                view === 'dashboard' ? 'Overview of your sales health' :
+                  view === 'meetings' ? 'Schedule and record client interactions' :
+                    view === 'email' ? 'Generate personalized sales emails with AI' :
+                      'Ask questions about your leads, meetings, and sales strategy'}
             </p>
           </div>
-          
+
           <div className="flex items-center gap-3">
-            {view !== 'dashboard' && view !== 'chat' && (
+            {view !== 'dashboard' && view !== 'chat' && view !== 'email' && (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder={view === 'leads' ? "Search leads..." : "Search meetings..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -762,12 +774,12 @@ export default function App() {
                 />
               </div>
             )}
-            {view !== 'chat' && (
-              <button 
-                onClick={() => { 
+            {view !== 'chat' && view !== 'email' && (
+              <button
+                onClick={() => {
                   if (view === 'leads') {
-                    setEditingLead(null); 
-                    setIsModalOpen(true); 
+                    setEditingLead(null);
+                    setIsModalOpen(true);
                   } else {
                     setEditingMeeting(null);
                     setIsMeetingModalOpen(true);
@@ -782,7 +794,9 @@ export default function App() {
           </div>
         </header>
 
-        {view === 'chat' ? (
+        {view === 'email' ? (
+          <EmailComposer leads={leads} />
+        ) : view === 'chat' ? (
           <ChatView leads={leads} meetings={meetings} />
         ) : view === 'dashboard' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -790,7 +804,7 @@ export default function App() {
             <StatCard icon={<Clock className="text-yellow-600" />} label="Active Leads" value={stats.activeLeads} />
             <StatCard icon={<DollarSign className="text-emerald-600" />} label="Won Value" value={`$${stats.wonValue.toLocaleString()}`} />
             <StatCard icon={<TrendingUp className="text-indigo-600" />} label="Total Pipeline" value={`$${stats.totalValue.toLocaleString()}`} />
-            
+
             <div className="col-span-full bg-white p-6 rounded-2xl border border-[#E1E2E4]">
               <h3 className="text-lg font-semibold mb-6">Pipeline by Status</h3>
               <div className="space-y-4">
@@ -804,7 +818,7 @@ export default function App() {
                         <span className="text-gray-500">{count} leads</span>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <motion.div 
+                        <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${percentage}%` }}
                           className={cn("h-full rounded-full", STATUS_COLORS[status].split(' ')[0])}
@@ -864,14 +878,14 @@ export default function App() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <button 
+                              <button
                                 onClick={() => researchLead(lead)}
                                 className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                 title="AI Research"
                               >
                                 <Search size={18} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => {
                                   setSelectedLeadForNotes(lead);
                                   fetchLeadNotes(lead.id);
@@ -881,20 +895,20 @@ export default function App() {
                               >
                                 <ListFilter size={18} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => analyzeLead(lead)}
                                 className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                 title="AI Analysis"
                               >
                                 <Sparkles size={18} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => { setEditingLead(lead); setIsModalOpen(true); }}
                                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                               >
                                 <Edit2 size={18} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleDeleteLead(lead.id)}
                                 className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                               >
@@ -906,7 +920,7 @@ export default function App() {
                         {aiAnalysis?.id === lead.id && (
                           <tr>
                             <td colSpan={5} className="px-6 py-4 bg-indigo-50/50">
-                              <motion.div 
+                              <motion.div
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 className="p-4 bg-white rounded-xl border border-indigo-100 shadow-sm"
@@ -947,9 +961,9 @@ export default function App() {
                     <p className="text-gray-500 text-sm py-4">No upcoming meetings scheduled.</p>
                   ) : (
                     meetings.filter(m => !m.is_completed).map(meeting => (
-                      <MeetingItem 
-                        key={meeting.id} 
-                        meeting={meeting} 
+                      <MeetingItem
+                        key={meeting.id}
+                        meeting={meeting}
                         isRecording={isRecording && recordingMeetingId === meeting.id}
                         isTranscribing={isTranscribing && recordingMeetingId === meeting.id}
                         isGeneratingPodcast={isGeneratingPodcast === meeting.id}
@@ -981,9 +995,9 @@ export default function App() {
                     <p className="text-gray-500 text-sm py-4">No completed meetings yet.</p>
                   ) : (
                     meetings.filter(m => m.is_completed).map(meeting => (
-                      <MeetingItem 
-                        key={meeting.id} 
-                        meeting={meeting} 
+                      <MeetingItem
+                        key={meeting.id}
+                        meeting={meeting}
                         isRecording={isRecording && recordingMeetingId === meeting.id}
                         isTranscribing={isTranscribing && recordingMeetingId === meeting.id}
                         isGeneratingPodcast={isGeneratingPodcast === meeting.id}
@@ -1013,14 +1027,14 @@ export default function App() {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
               className="absolute inset-0 bg-black/20 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -1037,7 +1051,7 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-500 uppercase">Full Name</label>
-                    <input 
+                    <input
                       name="name"
                       required
                       defaultValue={editingLead?.name}
@@ -1046,7 +1060,7 @@ export default function App() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-500 uppercase">Company</label>
-                    <input 
+                    <input
                       name="company"
                       defaultValue={editingLead?.company}
                       className="w-full px-4 py-2 bg-gray-50 border border-[#E1E2E4] rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -1057,7 +1071,7 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-500 uppercase">Email</label>
-                    <input 
+                    <input
                       name="email"
                       type="email"
                       defaultValue={editingLead?.email}
@@ -1066,7 +1080,7 @@ export default function App() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-500 uppercase">Phone</label>
-                    <input 
+                    <input
                       name="phone"
                       defaultValue={editingLead?.phone}
                       className="w-full px-4 py-2 bg-gray-50 border border-[#E1E2E4] rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -1077,7 +1091,7 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-500 uppercase">Status</label>
-                    <select 
+                    <select
                       name="status"
                       defaultValue={editingLead?.status || 'New'}
                       className="w-full px-4 py-2 bg-gray-50 border border-[#E1E2E4] rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -1087,7 +1101,7 @@ export default function App() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-500 uppercase">Deal Value ($)</label>
-                    <input 
+                    <input
                       name="value"
                       type="number"
                       step="0.01"
@@ -1099,7 +1113,7 @@ export default function App() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Notes</label>
-                  <textarea 
+                  <textarea
                     name="notes"
                     rows={3}
                     defaultValue={editingLead?.notes}
@@ -1108,14 +1122,14 @@ export default function App() {
                 </div>
 
                 <div className="pt-4 flex gap-3">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
                     className="flex-1 px-4 py-2.5 border border-[#E1E2E4] text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
                   >
@@ -1132,14 +1146,14 @@ export default function App() {
       <AnimatePresence>
         {isMeetingModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMeetingModalOpen(false)}
               className="absolute inset-0 bg-black/20 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -1155,7 +1169,7 @@ export default function App() {
               <form onSubmit={handleSaveMeeting} className="p-6 space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Associate with Lead</label>
-                  <select 
+                  <select
                     name="lead_id"
                     required
                     defaultValue={editingMeeting?.lead_id}
@@ -1170,7 +1184,7 @@ export default function App() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Meeting Title</label>
-                  <input 
+                  <input
                     name="title"
                     required
                     placeholder="e.g. Discovery Call, Product Demo"
@@ -1181,7 +1195,7 @@ export default function App() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Date & Time</label>
-                  <input 
+                  <input
                     name="meeting_date"
                     type="datetime-local"
                     required
@@ -1192,7 +1206,7 @@ export default function App() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Meeting Notes / Agenda</label>
-                  <textarea 
+                  <textarea
                     name="notes"
                     rows={4}
                     placeholder="What was discussed? Next steps?"
@@ -1202,14 +1216,14 @@ export default function App() {
                 </div>
 
                 <div className="pt-4 flex gap-3">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setIsMeetingModalOpen(false)}
                     className="flex-1 px-4 py-2.5 border border-[#E1E2E4] text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
                   >
@@ -1226,14 +1240,14 @@ export default function App() {
       <AnimatePresence>
         {selectedLeadForNotes && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedLeadForNotes(null)}
               className="absolute inset-0 bg-black/20 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, x: 20 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, scale: 0.95, x: 20 }}
@@ -1251,7 +1265,7 @@ export default function App() {
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50">
                 <div className="space-y-4">
-                  <form 
+                  <form
                     onSubmit={async (e) => {
                       e.preventDefault();
                       const form = e.currentTarget;
@@ -1262,14 +1276,14 @@ export default function App() {
                     }}
                     className="bg-white p-4 rounded-2xl border border-[#E1E2E4] shadow-sm"
                   >
-                    <textarea 
+                    <textarea
                       name="note"
                       placeholder="Add a new note..."
                       rows={2}
                       className="w-full px-0 py-0 bg-transparent border-none focus:ring-0 text-sm resize-none"
                     />
                     <div className="flex justify-end pt-2 border-t border-gray-100 mt-2">
-                      <button 
+                      <button
                         type="submit"
                         className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
                       >
@@ -1291,9 +1305,9 @@ export default function App() {
                             <span className={cn(
                               "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
                               note.type === 'meeting' ? "bg-blue-100 text-blue-700" :
-                              note.type === 'analysis' ? "bg-purple-100 text-purple-700" :
-                              note.type === 'research' ? "bg-emerald-100 text-emerald-700" :
-                              "bg-gray-100 text-gray-700"
+                                note.type === 'analysis' ? "bg-purple-100 text-purple-700" :
+                                  note.type === 'research' ? "bg-emerald-100 text-emerald-700" :
+                                    "bg-gray-100 text-gray-700"
                             )}>
                               {note.type}
                             </span>
@@ -1319,14 +1333,14 @@ export default function App() {
       <AnimatePresence>
         {infographicUrl && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setInfographicUrl(null)}
               className="absolute inset-0 bg-black/40 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 40 }}
@@ -1343,16 +1357,16 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-8 bg-gray-50 flex flex-col items-center">
-                <img 
-                  src={infographicUrl.url} 
-                  alt="Meeting Prep Infographic" 
+                <img
+                  src={infographicUrl.url}
+                  alt="Meeting Prep Infographic"
                   className="w-full max-w-full h-auto rounded-xl shadow-2xl border border-gray-200"
                   referrerPolicy="no-referrer"
                 />
               </div>
-              
+
               <div className="p-4 bg-white border-t border-[#E1E2E4] flex justify-end">
-                <button 
+                <button
                   onClick={() => {
                     const link = document.createElement('a');
                     link.href = infographicUrl.url;
@@ -1375,7 +1389,7 @@ export default function App() {
         {(isAnalyzing || isResearching || isGeneratingInfographic) && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/60 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-4">
-              <motion.div 
+              <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                 className="text-indigo-600"
@@ -1383,9 +1397,9 @@ export default function App() {
                 {isResearching ? <Search size={48} /> : isGeneratingInfographic ? <ImageIcon size={48} /> : <Sparkles size={48} />}
               </motion.div>
               <p className="text-lg font-semibold text-indigo-900">
-                {isResearching ? 'Gemini is researching lead details...' : 
-                 isGeneratingInfographic ? 'Nano Banana is crafting your infographic...' :
-                 'AI is analyzing lead data...'}
+                {isResearching ? 'Gemini is researching lead details...' :
+                  isGeneratingInfographic ? 'Nano Banana is crafting your infographic...' :
+                    'AI is analyzing lead data...'}
               </p>
             </div>
           </div>
@@ -1433,7 +1447,7 @@ function ChatView({ leads, meetings }: { leads: Lead[]; meetings: Meeting[] }) {
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      
+
       const context = `
         Current Leads: ${JSON.stringify(leads.map(l => ({ name: l.name, company: l.company, status: l.status, value: l.value })))}
         Upcoming Meetings: ${JSON.stringify(meetings.map(m => ({ title: m.title, lead: m.lead_name, date: m.meeting_date, completed: m.is_completed })))}
@@ -1473,8 +1487,8 @@ function ChatView({ leads, meetings }: { leads: Lead[]; meetings: Meeting[] }) {
           )}>
             <div className={cn(
               "max-w-[80%] p-4 rounded-2xl text-sm",
-              msg.role === 'user' 
-                ? "bg-indigo-600 text-white rounded-tr-none" 
+              msg.role === 'user'
+                ? "bg-indigo-600 text-white rounded-tr-none"
                 : "bg-gray-100 text-gray-800 rounded-tl-none"
             )}>
               <div className="markdown-body">
@@ -1495,15 +1509,15 @@ function ChatView({ leads, meetings }: { leads: Lead[]; meetings: Meeting[] }) {
 
       <div className="p-4 border-t border-[#E1E2E4] bg-gray-50">
         <div className="flex gap-2">
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="Ask about your leads or meetings..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             className="flex-1 px-4 py-2.5 bg-white border border-[#E1E2E4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
           />
-          <button 
+          <button
             onClick={handleSend}
             disabled={isLoading || !input.trim()}
             className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white p-2.5 rounded-xl transition-all shadow-sm shadow-indigo-200"
@@ -1516,28 +1530,28 @@ function ChatView({ leads, meetings }: { leads: Lead[]; meetings: Meeting[] }) {
   );
 }
 
-function MeetingItem({ 
-  meeting, 
-  isRecording, 
-  isTranscribing, 
+function MeetingItem({
+  meeting,
+  isRecording,
+  isTranscribing,
   isGeneratingPodcast,
   isGeneratingInfographic,
-  onToggle, 
-  onEdit, 
-  onDelete, 
-  onStartRecord, 
-  onStopRecord, 
+  onToggle,
+  onEdit,
+  onDelete,
+  onStartRecord,
+  onStopRecord,
   onFileUpload,
   onGeneratePodcast,
   onGenerateInfographic
-}: { 
-  meeting: Meeting; 
+}: {
+  meeting: Meeting;
   isRecording: boolean;
   isTranscribing: boolean;
   isGeneratingPodcast: boolean;
   isGeneratingInfographic: boolean;
-  onToggle: () => void; 
-  onEdit: () => void; 
+  onToggle: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   onStartRecord: () => void;
   onStopRecord: () => void;
@@ -1554,7 +1568,7 @@ function MeetingItem({
       "p-4 rounded-xl border transition-all flex items-start gap-4",
       meeting.is_completed ? "bg-gray-50 border-gray-200 opacity-70" : "bg-white border-[#E1E2E4] hover:border-indigo-200 shadow-sm"
     )}>
-      <button 
+      <button
         onClick={onToggle}
         className={cn(
           "mt-1 p-1 rounded-full transition-colors",
@@ -1578,16 +1592,16 @@ function MeetingItem({
               </button>
             ) : (
               <>
-                <button 
-                  onClick={onGenerateInfographic} 
-                  className="p-1 text-emerald-600 hover:bg-emerald-50 rounded" 
+                <button
+                  onClick={onGenerateInfographic}
+                  className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
                   title="Generate Prep Infographic"
                 >
                   <ImageIcon size={14} />
                 </button>
-                <button 
-                  onClick={onGeneratePodcast} 
-                  className="p-1 text-indigo-600 hover:bg-indigo-50 rounded" 
+                <button
+                  onClick={onGeneratePodcast}
+                  className="p-1 text-indigo-600 hover:bg-indigo-50 rounded"
                   title="Generate Briefing Podcast"
                 >
                   <Headphones size={14} />
@@ -1598,12 +1612,12 @@ function MeetingItem({
                 <button onClick={() => fileInputRef.current?.click()} className="p-1 text-gray-400 hover:text-indigo-600 rounded" title="Upload Voice Note">
                   <Upload size={14} />
                 </button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="audio/*" 
-                  onChange={onFileUpload} 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="audio/*"
+                  onChange={onFileUpload}
                 />
               </>
             )}
@@ -1615,7 +1629,7 @@ function MeetingItem({
             </button>
           </div>
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
           <span className="flex items-center gap-1">
             <Users size={12} />
